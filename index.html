@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Perceptual Colour Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="https://unpkg.com/culori@4.0.1/dist/culori.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/apca-w3@0.1.9/dist/apca.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <h1>Perceptual Colour Tool</h1>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>1) Choose a primary colour</h2>
+      <div class="row">
+        <input type="color" id="primaryColor" value="#5b8aff" aria-label="Primary colour" />
+        <input type="text" id="primaryHex" value="#5b8aff" aria-label="Primary HEX" />
+        <button id="usePrimary" class="btn">Use primary</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2) Recommended 60/30/10 scheme</h2>
+      <div class="scheme-grid" id="schemeGrid" aria-live="polite"></div>
+      <div class="row right">
+        <button id="acceptScheme" class="btn">Accept scheme</button>
+      </div>
+    </section>
+
+    <section class="card" id="dashboard" hidden>
+      <h2>3) Dashboard: OKLCH ramps (50–900)</h2>
+      <div id="ramps" class="ramps"></div>
+    </section>
+
+    <section class="card" id="apca" hidden>
+      <h2>APCA Contrast Checker</h2>
+      <div class="row">
+        <label>Text colour <input type="color" id="apcaText" value="#000000"></label>
+        <label>Background colour <input type="color" id="apcaBg" value="#ffffff"></label>
+        <button id="apcaSwap" class="btn">Swap</button>
+      </div>
+      <div class="apca-result" id="apcaResult">Contrast: –</div>
+      <div class="apca-preview" id="apcaPreview">The quick brown fox jumps over the lazy dog.</div>
+    </section>
+  </main>
+  
+  <footer class="app-footer">
+    <span>Built with OKLCH (culori) and APCA.</span>
+  </footer>
+</body>
+</html>
+
+
