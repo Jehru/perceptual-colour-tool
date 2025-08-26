@@ -176,6 +176,18 @@
     ramps.forEach((r) => rampsRoot.appendChild(renderRamp(r)));
   }
 
+  // Render a single colour ramp from a given hex (temporary single-ramp mode)
+  function renderSingleRampFromHex(hex) {
+    const base = hexToOklch(hex);
+    const ramp = generateRampForOklch(base, 'Primary');
+    rampsRoot.innerHTML = '';
+    rampsRoot.appendChild(renderRamp(ramp));
+    dashboard.hidden = false;
+    apcaSection.hidden = false;
+    attachApcaPreview();
+    try { dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+  }
+
   function attachApcaPreview() {
     const text = apcaText.value;
     const bg = apcaBg.value;
@@ -193,32 +205,34 @@
 
   primaryColorInput.addEventListener('input', () => {
     syncHexFromPicker();
-    suggestScheme(primaryColorInput.value);
+    // suggestScheme(primaryColorInput.value);
+    renderSingleRampFromHex(primaryColorInput.value);
   });
   primaryHexInput.addEventListener('input', () => {
     syncPickerFromHex();
-    suggestScheme(primaryColorInput.value);
+    // suggestScheme(primaryColorInput.value);
+    renderSingleRampFromHex(primaryColorInput.value);
   });
   usePrimaryBtn.addEventListener('click', () => {
-    // Show a dummy example scheme regardless of the chosen primary
-    renderDummyScheme();
+    // renderDummyScheme();
+    renderSingleRampFromHex(primaryColorInput.value);
   });
 
-  acceptSchemeBtn.addEventListener('click', () => {
-    const cards = els('.scheme-item');
-    if (!cards.length) return;
-    const items = cards.map((card) => {
-      const role = card.dataset.role;
-      const hex = card.dataset.hex;
-      const label = card.dataset.label || 'Colour';
-      return { role, label, oklch: hexToOklch(hex) };
-    });
-    renderRampsFromScheme(items);
-    dashboard.hidden = false;
-    apcaSection.hidden = false;
-    attachApcaPreview();
-    try { dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
-  });
+  // acceptSchemeBtn.addEventListener('click', () => {
+  //   const cards = els('.scheme-item');
+  //   if (!cards.length) return;
+  //   const items = cards.map((card) => {
+  //     const role = card.dataset.role;
+  //     const hex = card.dataset.hex;
+  //     const label = card.dataset.label || 'Colour';
+  //     return { role, label, oklch: hexToOklch(hex) };
+  //   });
+  //   renderRampsFromScheme(items);
+  //   dashboard.hidden = false;
+  //   apcaSection.hidden = false;
+  //   attachApcaPreview();
+  //   try { dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+  // });
 
   apcaText.addEventListener('input', attachApcaPreview);
   apcaBg.addEventListener('input', attachApcaPreview);
@@ -226,8 +240,8 @@
     const t = apcaText.value; apcaText.value = apcaBg.value; apcaBg.value = t; attachApcaPreview();
   });
 
-  // Initial render (show dummy scheme so there's always something visible)
-  renderDummyScheme();
+  // Initial render (single ramp from the initial primary colour)
+  renderSingleRampFromHex(primaryColorInput.value);
   attachApcaPreview();
 })();
 

@@ -7,10 +7,335 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <script defer src="https://unpkg.com/culori@4.0.1/dist/culori.min.js"></script>
+  <style>
+:root {
+  --bg: #0b0c0f;
+  --card: #14161b;
+  --text: #e7e9ee;
+  --muted: #a7adbb;
+  --accent: #5b8aff;
+  --border: #232734;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-header, .app-footer {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.app-footer { border-top: 1px solid var(--border); border-bottom: none; color: var(--muted); }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.row.right { justify-content: flex-end; }
+
+input[type="text"] { 
+  background: #0f1116; border: 1px solid var(--border); color: var(--text); 
+  padding: 8px 10px; border-radius: 8px; width: 140px; 
+}
+input[type="color"] { width: 48px; height: 36px; border: none; background: transparent; }
+
+.btn { background: var(--accent); color: white; border: none; padding: 10px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+.scheme-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.scheme-item { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.scheme-swatch { height: 70px; }
+.scheme-meta { padding: 8px 10px; font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; }
+
+.ramps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.ramp { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.ramp-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.ramp-steps { display: grid; grid-template-columns: 1fr; }
+.step { height: 56px; display: flex; align-items: flex-end; justify-content: space-between; padding: 6px; font-size: 12px; color: #000; }
+.step.invert { color: #fff; }
+.step-controls { padding: 8px 10px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.apca-result { margin-top: 8px; font-weight: 600; }
+.apca-preview { margin-top: 10px; padding: 14px; border-radius: 8px; border: 1px solid var(--border); }
+
+@media (max-width: 900px) {
+  .scheme-grid, .ramps { grid-template-columns: 1fr; }
+}
+  </style>
   <script defer src="https://cdn.jsdelivr.net/npm/apca-w3@0.1.9/dist/apca.min.js"></script>
-  <script defer src="app.js"></script>
+  <script>
+window.addEventListener('load', () => {
+  (() => {
+    // Simple approx: use HSL as a stand‑in for OKLCH
+    function hexToRgb(hex) {
+      const bigint = parseInt(hex.slice(1), 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return [r/255, g/255, b/255];
+    }
+
+    function rgbToHex(r,g,b) {
+      return "#" + [r,g,b].map(x => {
+        const v = Math.round(x*255).toString(16).padStart(2,"0");
+        return v;
+      }).join("");
+    }
+
+    function hexToOklch(hex) {
+      const [r,g,b] = hexToRgb(hex);
+      const max = Math.max(r,g,b), min = Math.min(r,g,b);
+      let h,s,l=(max+min)/2;
+      if(max===min){ h=s=0; }
+      else{
+        const d=max-min;
+        s = l>0.5? d/(2-max-min):d/(max+min);
+        switch(max){
+          case r: h=(g-b)/d+(g<b?6:0); break;
+          case g: h=(b-r)/d+2; break;
+          case b: h=(r-g)/d+4; break;
+        }
+        h/=6;
+      }
+      return { mode:"oklch", l, c:s, h:h*360 };
+    }
+
+    function formatHex(oklch) {
+      // Convert back using HSL as proxy
+      const h=oklch.h/360, s=oklch.c, l=oklch.l;
+      let r,g,b;
+      if(s===0){ r=g=b=l; }
+      else {
+        const hue2rgb=(p,q,t)=>{ if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p; };
+        const q=l<0.5? l*(1+s):l+s-l*s;
+        const p=2*l-q;
+        r=hue2rgb(p,q,h+1/3);
+        g=hue2rgb(p,q,h);
+        b=hue2rgb(p,q,h-1/3);
+      }
+      return rgbToHex(r,g,b);
+    }
+
+    const el = (sel) => document.querySelector(sel);
+    const els = (sel) => Array.from(document.querySelectorAll(sel));
+
+    const primaryColorInput = el('#primaryColor');
+    const primaryHexInput = el('#primaryHex');
+    const usePrimaryBtn = el('#usePrimary');
+    const schemeGrid = el('#schemeGrid');
+    const acceptSchemeBtn = el('#acceptScheme');
+    const rampsRoot = el('#ramps');
+    const dashboard = el('#dashboard');
+    const apcaSection = el('#apca');
+    const apcaText = el('#apcaText');
+    const apcaBg = el('#apcaBg');
+    const apcaSwap = el('#apcaSwap');
+    const apcaResult = el('#apcaResult');
+    const apcaPreview = el('#apcaPreview');
+
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const round2 = (n) => Math.round(n * 100) / 100;
+
+    const STEPS = [50,100,200,300,400,500,600,700,800,900];
+
+    function syncHexFromPicker() {
+      primaryHexInput.value = primaryColorInput.value.toLowerCase();
+    }
+
+    function syncPickerFromHex() {
+      const v = primaryHexInput.value.trim();
+      if (/^#?[0-9a-fA-F]{6}$/.test(v)) {
+        const hex = v.startsWith('#') ? v : `#${v}`;
+        primaryColorInput.value = hex;
+      }
+    }
+
+    function suggestScheme(primaryHex) {
+      const p = hexToOklch(primaryHex);
+      const accent = { mode: 'oklch', l: clamp(p.l, 0.5, 0.75), c: clamp(p.c * 0.95, 0.03, 0.37), h: p.h };
+      const deep = { mode: 'oklch', l: clamp(p.l * 0.7, 0.25, 0.55), c: clamp(p.c * 1.05, 0.04, 0.4), h: p.h };
+      const neutralHue = isFinite(p.h) ? (p.h + 210) % 360 : 300;
+      const neutral = { mode: 'oklch', l: 0.96, c: 0.02, h: neutralHue };
+
+      const items = [
+        { role: '60%', label: 'Neutral (background)', oklch: neutral },
+        { role: '30%', label: 'Primary (accent)', oklch: accent },
+        { role: '10%', label: 'Primary Deep', oklch: deep },
+      ];
+
+      schemeGrid.innerHTML = items.map((it) => {
+        const hex = formatHex(it.oklch);
+        return `
+          <div class="scheme-item" data-role="${it.role}" data-hex="${hex}" data-label="${it.label}">
+            <div class="scheme-swatch" style="background:${hex}"></div>
+            <div class="scheme-meta">
+              <span>${it.role} • ${it.label}</span>
+              <span>${hex}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      acceptSchemeBtn.disabled = false;
+      return items;
+    }
+
+    function renderDummyScheme() {
+      const items = [
+        { role: '60%', label: 'Neutral (background)', hex: '#f3f4f6' },
+        { role: '30%', label: 'Primary (accent)', hex: '#5b8aff' },
+        { role: '10%', label: 'Primary Deep', hex: '#1e3a8a' },
+      ];
+      schemeGrid.innerHTML = items.map((it) => {
+        return `
+          <div class="scheme-item" data-role="${it.role}" data-hex="${it.hex}" data-label="${it.label}">
+            <div class="scheme-swatch" style="background:${it.hex}"></div>
+            <div class="scheme-meta">
+              <span>${it.role} • ${it.label}</span>
+              <span>${it.hex}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      acceptSchemeBtn.disabled = false;
+    }
+
+    function generateRampForOklch(base, name) {
+      const steps = STEPS.map((k, idx) => {
+        const t = idx / (STEPS.length - 1);
+        const l = clamp(0.98 - t * 0.85, 0.08, 0.98);
+        const cTaper = 1 - Math.pow(Math.abs(0.5 - t) * 2, 1.2) * 0.25;
+        const cVal = clamp(base.c * cTaper, 0, 0.4);
+        const o = { mode: 'oklch', l, c: cVal, h: base.h };
+        return { key: k, oklch: o, hex: formatHex(o) };
+      });
+
+      return { name, base, steps };
+    }
+
+    function renderRamp(ramp) {
+      const id = `r-${ramp.name.replace(/\s+/g, '-').toLowerCase()}`;
+      const container = document.createElement('div');
+      container.className = 'ramp';
+      container.dataset.ramp = ramp.name;
+      container.innerHTML = `
+        <div class="ramp-header">
+          <strong>${ramp.name}</strong>
+          <div class="row">
+            <label style="color:#a7adbb">Chroma <input type="range" min="0" max="0.4" step="0.005" value="${round2(ramp.base.c)}" data-control="c"></label>
+            <label style="color:#a7adbb">Hue <input type="range" min="0" max="360" step="1" value="${round2(isFinite(ramp.base.h) ? ramp.base.h : 0)}" data-control="h"></label>
+          </div>
+        </div>
+        <div class="ramp-steps"></div>
+        <div class="step-controls">
+          <span style="color:#a7adbb">Adjust individual lightness (maintains uniformity across ramp)</span>
+        </div>
+      `;
+      const stepsEl = container.querySelector('.ramp-steps');
+      stepsEl.innerHTML = ramp.steps.map((s) => {
+        const textColor = s.oklch.l < 0.55 ? '#fff' : '#000';
+        return `
+          <div class="step ${textColor === '#fff' ? 'invert' : ''}" data-key="${s.key}" style="background:${s.hex}">
+            <span>${s.key}</span>
+            <span>${s.hex}</span>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('input[type="range"]').forEach((input) => {
+        input.addEventListener('input', () => {
+          const control = input.dataset.control;
+          if (control === 'c') ramp.base.c = parseFloat(input.value);
+          if (control === 'h') ramp.base.h = parseFloat(input.value);
+          const regenerated = generateRampForOklch(ramp.base, ramp.name);
+          container.replaceWith(renderRamp(regenerated));
+          attachApcaPreview();
+        });
+      });
+
+      stepsEl.querySelectorAll('.step').forEach((stepEl) => {
+        stepEl.addEventListener('click', () => {
+          const key = stepEl.dataset.key;
+          const idx = STEPS.indexOf(Number(key));
+          const current = ramp.steps[idx];
+          const newL = clamp(hexToOklch(current.hex).l + 0.02, 0.05, 0.99);
+          const adjusted = ramp.steps.map((s, i) => {
+            const dist = Math.abs(i - idx);
+            const influence = Math.max(0, 1 - dist / 4);
+            const baseL = hexToOklch(s.hex).l;
+            const l = clamp(baseL + (newL - baseL) * influence * 0.6, 0.05, 0.99);
+            const o = { mode: 'oklch', l, c: ramp.base.c * (1 - Math.pow(Math.abs(0.5 - i/(STEPS.length-1)) * 2, 1.2) * 0.25), h: ramp.base.h };
+            return { key: s.key, oklch: o, hex: formatHex(o) };
+          });
+          const updated = { name: ramp.name, base: ramp.base, steps: adjusted };
+          container.replaceWith(renderRamp(updated));
+          attachApcaPreview();
+        });
+      });
+
+      return container;
+    }
+
+    function renderRampsFromScheme(items) {
+      rampsRoot.innerHTML = '';
+      const ramps = items.map((it) => generateRampForOklch(it.oklch, `${it.role} ${it.label}`));
+      ramps.forEach((r) => rampsRoot.appendChild(renderRamp(r)));
+    }
+
+    function renderSingleRampFromHex(hex) {
+      const base = hexToOklch(hex);
+      const ramp = generateRampForOklch(base, 'Primary');
+      rampsRoot.innerHTML = '';
+      rampsRoot.appendChild(renderRamp(ramp));
+      dashboard.hidden = false;
+      apcaSection.hidden = false;
+      attachApcaPreview();
+      try { dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) {}
+    }
+
+    function attachApcaPreview() {
+      const text = apcaText.value;
+      const bg = apcaBg.value;
+      apcaPreview.style.color = text;
+      apcaPreview.style.background = bg;
+      try {
+        const Lc = window.APCAcontrast(text, bg);
+        const score = Number.isFinite(Lc) ? Lc.toFixed(1) : '–';
+        apcaResult.textContent = `Contrast: ${score} Lc`;
+      } catch (e) {
+        apcaResult.textContent = 'Contrast: –';
+      }
+    }
+
+    primaryColorInput.addEventListener('input', () => {
+      syncHexFromPicker();
+      renderSingleRampFromHex(primaryColorInput.value);
+    });
+    primaryHexInput.addEventListener('input', () => {
+      syncPickerFromHex();
+      renderSingleRampFromHex(primaryColorInput.value);
+    });
+    usePrimaryBtn.addEventListener('click', () => {
+      renderSingleRampFromHex(primaryColorInput.value);
+    });
+
+    // acceptSchemeBtn intentionally disabled in single-ramp mode
+
+    apcaText.addEventListener('input', attachApcaPreview);
+    apcaBg.addEventListener('input', attachApcaPreview);
+    apcaSwap.addEventListener('click', () => {
+      const t = apcaText.value; apcaText.value = apcaBg.value; apcaBg.value = t; attachApcaPreview();
+    });
+
+    renderSingleRampFromHex(primaryColorInput.value);
+    attachApcaPreview();
+  })();
+});
+  </script>
 </head>
 <body>
   <header class="app-header">
@@ -27,7 +352,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="schemeSection" hidden>
       <h2>2) Recommended 60/30/10 scheme</h2>
       <div class="scheme-grid" id="schemeGrid" aria-live="polite"></div>
       <div class="row right">
@@ -57,5 +382,3 @@
   </footer>
 </body>
 </html>
-
-
